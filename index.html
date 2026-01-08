@@ -10,6 +10,10 @@
 
     <!-- Bibliotecas JS -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+    <!-- Bibliotecas de Leitura de Arquivos (Excel, CSV, Word) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js" defer></script>
     <!-- jsPDF UMD deve vir antes do plugin AutoTable -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
     <!-- Versão minificada do plugin AutoTable para jsPDF -->
@@ -1731,7 +1735,12 @@
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <!-- Coluna do Formulário -->
                         <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                            <h2 class="text-2xl font-bold text-gray-800 mb-4">Registrar Nova Requisição</h2>
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-2xl font-bold text-gray-800">Registrar Nova Requisição</h2>
+                                <button type="button" id="btn-importar-requisicao" class="btn-secondary btn-sm flex items-center gap-2">
+                                    <i data-lucide="upload-cloud" class="w-4 h-4"></i> Importar Requisição
+                                </button>
+                            </div>
                             <form id="form-materiais" class="space-y-4">
                                 <div>
                                     <label for="select-unidade-materiais" class="form-label">Unidade</label>
@@ -1998,6 +2007,77 @@
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Sub-view: Histórico Geral -->
+                <div id="subview-historico-geral" class="hidden">
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                         <h2 class="text-xl font-bold text-gray-800 mb-4"><i data-lucide="file-bar-chart-2" class="inline-block -mt-1 mr-2"></i> Histórico Geral de Itens</h2>
+                         <p class="text-sm text-gray-600 mb-4">Visão consolidada de todos os itens requisitados e entregues.</p>
+                         
+                         <!-- Filtros -->
+                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                             <div>
+                                 <label class="form-label">Período</label>
+                                 <select id="filtro-hist-geral-periodo" class="form-select">
+                                     <option value="30">Últimos 30 dias</option>
+                                     <option value="90">Últimos 90 dias</option>
+                                     <option value="365">Último ano</option>
+                                     <option value="todo">Todo o período</option>
+                                 </select>
+                             </div>
+                             <div>
+                                 <label class="form-label">Unidade</label>
+                                 <select id="filtro-hist-geral-unidade" class="form-select">
+                                     <option value="todas">Todas</option>
+                                 </select>
+                             </div>
+                             <div>
+                                 <label class="form-label">Categoria</label>
+                                 <select id="filtro-hist-geral-categoria" class="form-select">
+                                     <option value="todas">Todas</option>
+                                     <option value="alimenticio">Alimentício</option>
+                                     <option value="higiene">Higiene</option>
+                                     <option value="limpeza">Limpeza</option>
+                                     <option value="expediente">Expediente</option>
+                                 </select>
+                             </div>
+                             <div class="flex items-end">
+                                 <button id="btn-gerar-relatorio-geral" class="btn-primary w-full">
+                                     <i data-lucide="filter"></i> Filtrar
+                                 </button>
+                             </div>
+                         </div>
+
+                         <!-- Gráficos -->
+                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                             <div class="border rounded-lg p-4">
+                                 <h4 class="font-semibold text-gray-700 mb-2">Itens Mais Requisitados</h4>
+                                 <canvas id="chart-itens-mais-req"></canvas>
+                             </div>
+                             <div class="border rounded-lg p-4">
+                                 <h4 class="font-semibold text-gray-700 mb-2">Requisições por Unidade</h4>
+                                 <canvas id="chart-req-por-unidade"></canvas>
+                             </div>
+                         </div>
+
+                         <!-- Tabela Detalhada -->
+                         <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                             <table class="table w-full text-sm">
+                                 <thead class="bg-gray-50">
+                                     <tr>
+                                         <th>Item</th>
+                                         <th>Qtd. Total</th>
+                                         <th>Unidades Atendidas</th>
+                                         <th>Última Saída</th>
+                                     </tr>
+                                 </thead>
+                                 <tbody id="table-historico-geral">
+                                     <tr><td colspan="4" class="text-center py-8 text-gray-500">Selecione os filtros para gerar o relatório</td></tr>
+                                 </tbody>
+                             </table>
+                         </div>
                     </div>
                 </div>
             </div> <!-- Fim de content-materiais -->
@@ -2722,23 +2802,40 @@
 
         <!-- Modal para inserir nome do Separador (Materiais) -->
         <div id="separador-modal" class="modal">
-            <div class="modal-content">
+            <div class="modal-content" style="max-width: 600px;">
                 <div class="modal-header">
-                    <h3 class="modal-title"><i data-lucide="user-check" class="w-5 h-5 inline-block -mt-1 mr-2"></i> Iniciar Separação</h3>
+                    <h3 class="modal-title"><i data-lucide="package-open" class="w-5 h-5 inline-block -mt-1 mr-2"></i> Conferência e Separação</h3>
                     <button class="modal-close" onclick="this.closest('.modal').style.display='none'">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-sm mb-4">Informe o nome do responsável pela separação deste material.</p>
-                    <div>
-                        <label for="input-separador-nome" class="form-label">Nome do Separador</label>
-                        <input type="text" id="input-separador-nome" class="form-input" placeholder="Nome completo" required>
+                    <div class="mb-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-sm text-yellow-800">
+                        <p><strong>Atenção:</strong> Verifique os itens solicitados e registre o que está sendo separado.</p>
                     </div>
+                    
+                    <div class="mb-4">
+                        <label for="input-separacao-itens" class="form-label">Itens a Separar (Edite se necessário)</label>
+                        <textarea id="input-separacao-itens" class="form-textarea h-32" placeholder="Liste os itens separados..."></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="input-separador-nome" class="form-label">Responsável pela Separação</label>
+                            <input type="text" id="input-separador-nome" class="form-input" placeholder="Nome completo" required>
+                        </div>
+                        <div>
+                            <label for="input-separador-assinatura" class="form-label">Visto / Assinatura</label>
+                            <input type="text" id="input-separador-assinatura" class="form-input" placeholder="Digite seu visto/rubrica" required>
+                        </div>
+                    </div>
+
                     <input type="hidden" id="separador-material-id">
                     <div id="alert-separador" class="alert mt-3"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="this.closest('.modal').style.display='none'">Cancelar</button>
-                    <button type="button" id="btn-salvar-separador" class="btn-primary">Salvar Nome e Liberar</button>
+                    <button type="button" id="btn-salvar-separador" class="btn-primary">
+                        <i data-lucide="check"></i> Confirmar Separação
+                    </button>
                 </div>
             </div>
         </div>
@@ -2814,6 +2911,84 @@
             <div id="alerta-debitos-content" class="space-y-3 text-lg md:text-xl text-gray-800"></div>
             <div class="mt-6 text-right">
                 <button id="btn-fechar-alerta-debitos" class="btn-primary btn-lg"><i data-lucide="x"></i> Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================= -->
+    <!-- MODAL DE LEITURA DE REQUISIÇÃO (IMPORTAR)     -->
+    <!-- ============================================= -->
+    <div id="modal-leitor-requisicao" class="modal">
+        <div class="modal-content" style="max-width: 800px;"> <!-- Largura maior -->
+            <div class="modal-header">
+                <h3 class="modal-title"><i data-lucide="file-input" class="w-5 h-5 inline-block -mt-1 mr-2"></i> Importar Requisição</h3>
+                <button class="modal-close" onclick="document.getElementById('modal-leitor-requisicao').style.display='none'">&times;</button>
+            </div>
+            <div class="modal-body">
+                
+                <!-- Área de Upload -->
+                <div id="leitor-upload-section">
+                    <div class="upload-area" id="leitor-drop-zone">
+                        <i data-lucide="upload-cloud" class="mx-auto block text-gray-400 mb-4" style="width: 48px; height: 48px;"></i>
+                        <h2 class="text-xl font-bold text-gray-700 mb-2">Arraste seu Arquivo Aqui</h2>
+                        <p class="text-gray-500 mb-4">Suporta Excel (.xlsx), CSV (.csv) e Word (.docx)</p>
+                        
+                        <div class="flex justify-center gap-2 mb-6">
+                            <span class="format-badge fmt-excel">Excel</span>
+                            <span class="format-badge fmt-csv">CSV</span>
+                            <span class="format-badge fmt-word">Word</span>
+                        </div>
+                        
+                        <input type="file" id="leitor-file-input" accept=".csv, .txt, .xlsx, .xls, .ods, .docx" class="hidden">
+                        <button class="btn-primary" onclick="document.getElementById('leitor-file-input').click()">
+                            Selecionar Arquivo
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loader -->
+                <div id="leitor-loading-section" class="hidden text-center py-10">
+                    <div class="loader-leitor mx-auto"></div>
+                    <h3 class="mt-4 text-lg font-semibold text-gray-700">Analisando Arquivo...</h3>
+                    <p class="text-gray-500">Identificando itens e unidades.</p>
+                </div>
+
+                <!-- Preview / Resultado -->
+                <div id="leitor-preview-section" class="hidden">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 flex justify-between items-center">
+                        <div>
+                            <p class="text-sm text-blue-800 font-bold">Unidade Identificada:</p>
+                            <p class="text-lg text-blue-900" id="leitor-preview-unidade">...</p>
+                        </div>
+                        <div class="text-right">
+                             <p class="text-sm text-blue-800 font-bold">Itens Encontrados:</p>
+                             <p class="text-lg text-blue-900" id="leitor-preview-count">0</p>
+                        </div>
+                    </div>
+
+                    <div class="overflow-y-auto max-h-60 border border-gray-200 rounded-lg mb-4">
+                        <table class="table w-full text-sm">
+                            <thead class="bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th>Item</th>
+                                    <th class="w-24 text-center">Qtd.</th>
+                                    <th class="w-24 text-center">Unid.</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leitor-preview-table">
+                                <!-- JS preenche -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="flex justify-end gap-2">
+                         <button type="button" id="btn-leitor-voltar" class="btn-secondary">Voltar</button>
+                         <button type="button" id="btn-confirmar-importacao" class="btn-primary">
+                            <i data-lucide="check"></i> Confirmar e Preencher
+                         </button>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>

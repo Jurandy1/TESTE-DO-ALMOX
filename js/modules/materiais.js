@@ -213,6 +213,9 @@ export function renderMateriaisStatus() {
     renderMaterialSubTable(DOM_ELEMENTS.tableEmSeparacao, separacao, 'separacao');
     renderMaterialSubTable(DOM_ELEMENTS.tableProntoEntrega, retirada, 'retirada');
     renderMaterialSubTable(DOM_ELEMENTS.tableHistoricoEntregues, entregue.sort((a,b) => (b.dataEntrega?.toMillis() || 0) - (a.dataEntrega?.toMillis() || 0)), 'entregue');
+    
+    // Atualiza Histórico Geral (se visível)
+    renderHistoricoGeral();
 }
 
 /**
@@ -610,11 +613,19 @@ function openSeparadorModal(materialId) {
          return;
     }
     
-    // CORREÇÃO: DOM_ELEMENTS -> DOM_ELEMENTS
     if (!DOM_ELEMENTS.separadorModal) return;
     console.log("Abrindo modal para material ID:", materialId);
+
+    // Preencher dados existentes
+    const material = getMateriais().find(m => m.id === materialId);
+    if (material && DOM_ELEMENTS.inputSeparacaoItens) {
+        DOM_ELEMENTS.inputSeparacaoItens.value = material.itens || '';
+    }
+
     DOM_ELEMENTS.separadorMaterialIdEl.value = materialId;
     DOM_ELEMENTS.inputSeparadorNome.value = '';
+    if (DOM_ELEMENTS.inputSeparadorAssinatura) DOM_ELEMENTS.inputSeparadorAssinatura.value = '';
+
     DOM_ELEMENTS.inputSeparadorNome.disabled = false;
     DOM_ELEMENTS.btnSalvarSeparador.disabled = false;
     DOM_ELEMENTS.btnSalvarSeparador.innerHTML = 'Salvar Nome e Liberar';
@@ -640,8 +651,17 @@ export async function handleSalvarSeparador() {
     const nomeSeparador = capitalizeString(DOM_ELEMENTS.inputSeparadorNome.value.trim());
     const materialId = DOM_ELEMENTS.separadorMaterialIdEl.value;
 
+    // NOVOS CAMPOS
+    const itensSeparados = DOM_ELEMENTS.inputSeparacaoItens ? DOM_ELEMENTS.inputSeparacaoItens.value.trim() : null;
+    const assinaturaSeparador = DOM_ELEMENTS.inputSeparadorAssinatura ? DOM_ELEMENTS.inputSeparadorAssinatura.value.trim() : null;
+
     if (!nomeSeparador) {
         showAlert('alert-separador', 'Por favor, informe o nome do separador.', 'warning');
+        return;
+    }
+
+    if (!assinaturaSeparador && DOM_ELEMENTS.inputSeparadorAssinatura) {
+        showAlert('alert-separador', 'Por favor, informe o visto/assinatura.', 'warning');
         return;
     }
 
@@ -651,14 +671,19 @@ export async function handleSalvarSeparador() {
 
     try {
         const docRef = doc(COLLECTIONS.materiais, materialId);
-        await updateDoc(docRef, {
+        const updateData = {
             status: 'separacao',
             responsavelSeparador: nomeSeparador,
             dataInicioSeparacao: serverTimestamp()
-        });
+        };
+
+        if (itensSeparados !== null) updateData.itens = itensSeparados;
+        if (assinaturaSeparador !== null) updateData.assinaturaSeparador = assinaturaSeparador;
+
+        await updateDoc(docRef, updateData);
 
         // Mostra o alerta na view "Para Separar"
-        showAlert('alert-para-separar', 'Nome salvo! O status foi atualizado para "Em Separação".', 'success', 3000); 
+        showAlert('alert-para-separar', 'Separação iniciada com sucesso!', 'success', 3000); 
         DOM_ELEMENTS.separadorModal.style.display = 'none'; // Fecha o modal imediatamente
         
         // CORREÇÃO 2.2: Chamar renderização local após sucesso

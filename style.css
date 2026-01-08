@@ -681,6 +681,56 @@ button .loading-spinner-small {
     padding: 1rem; border-radius: 0.5rem; font-size: 0.875rem;
     border: 1px solid transparent; display: none;
 }
+
+/* ============================================= */
+/* ESTILOS DO LEITOR DE REQUISIÇÃO (IMPORTADO)   */
+/* ============================================= */
+
+/* Upload Area */
+.upload-area { 
+    border: 2px dashed #94a3b8; 
+    border-radius: 12px; 
+    padding: 40px; 
+    text-align: center; 
+    background: #f8fafc; 
+    transition: all 0.3s; 
+    cursor: pointer; 
+}
+.upload-area:hover { 
+    border-color: #2563eb; /* primary blue */
+    background: #eff6ff; 
+}
+.upload-area i { 
+    font-size: 48px; 
+    color: #94a3b8; 
+    margin-bottom: 15px; 
+}
+
+/* Badges de Formato */
+.format-badge { 
+    display: inline-block; 
+    padding: 4px 8px; 
+    border-radius: 4px; 
+    font-size: 11px; 
+    font-weight: bold; 
+    margin: 2px; 
+    color: white; 
+}
+.fmt-excel { background-color: #16a34a; }
+.fmt-word { background-color: #2563eb; }
+.fmt-csv { background-color: #0d9488; }
+.fmt-pdf { background-color: #dc2626; }
+
+/* Loader Específico */
+.loader-leitor { 
+    border: 4px solid #f3f3f3; 
+    border-top: 4px solid #2563eb; 
+    border-radius: 50%; 
+    width: 40px; 
+    height: 40px; 
+    animation: spin 1s linear infinite; 
+    margin: 20px auto; 
+}
 .alert-success { background-color: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
 .alert-error { background-color: #fef2f2; color: #b91c1c; border-color: #fecaca; }
 .alert-info { background-color: #f0f9ff; color: #0c4a6e; border-color: #bae6fd; }

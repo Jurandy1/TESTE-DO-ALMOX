@@ -28,6 +28,8 @@ import {
     stopDashboardRefresh
 } from "./dashboard.js";
 import { getTodayDateString } from "../utils/formatters.js";
+import { initLeitorRequisicao } from "./leitor-requisicao.js";
+import { initHistoricoGeral } from "./historico-geral.js";
 
 // ======================================================================
 // FUNÇÕES DE CONTROLE GERAL
@@ -292,6 +294,15 @@ function initAllListeners() {
         DOM_ELEMENTS.btnCancelDelete.addEventListener("click", () => {
              if(DOM_ELEMENTS.confirmDeleteModal) DOM_ELEMENTS.confirmDeleteModal.style.display = "none";
          });
+
+    // 4. Configurar listener de exclusão no modal
+    if (DOM_ELEMENTS.btnConfirmDelete) DOM_ELEMENTS.btnConfirmDelete.addEventListener('click', executeDelete);
+
+    // 5. Inicializar Leitor de Requisição
+    initLeitorRequisicao();
+    initHistoricoGeral();
+    
+    // 6. Configurar listener para o modal de movimentação final
 
     console.log("Initializing listeners for all modules...");
     initDashboardListeners();

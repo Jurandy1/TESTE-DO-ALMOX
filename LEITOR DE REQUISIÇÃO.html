@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Requisições - V6 Categorias Inteligentes</title>
+    
+    <!-- Bibliotecas -->
+    <!-- Excel e ODS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="window.xlsxFailed=true"></script>
+    <!-- CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Word (.docx) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <!-- Ícones -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <!-- CSS Integrado -->
+    <style>
+        :root {
+            --primary: #2563eb; /* Azul Royal */
+            --primary-dark: #1e40af;
+            --bg: #f8fafc;
+            --text: #0f172a;
+            --border: #e2e8f0;
+            --white: #ffffff;
+            --error: #ef4444;
+            --success: #22c55e;
+            --warning: #f59e0b;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; line-height: 1.5; }
+        
+        /* Layout */
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background: #1e293b; color: white; padding: 15px 0; margin-bottom: 30px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        header .inner { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Componentes */
+        .card { background: var(--white); border-radius: 12px; padding: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; border: 1px solid var(--border); }
+        .hidden { display: none !important; }
+        .btn { cursor: pointer; background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; display: inline-flex; items-center; gap: 8px; transition: background 0.2s; }
+        .btn:hover { background: var(--primary-dark); }
+        .btn.secondary { background: #64748b; }
+        .btn.danger { background: var(--error); }
+        
+        /* Upload Area */
+        .upload-area { border: 2px dashed #94a3b8; border-radius: 12px; padding: 40px; text-align: center; background: #f8fafc; transition: all 0.3s; cursor: pointer; }
+        .upload-area:hover { border-color: var(--primary); background: #eff6ff; }
+        .upload-area i { font-size: 48px; color: #94a3b8; margin-bottom: 15px; }
+        
+        /* Badges de Formato */
+        .format-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin: 2px; color: white; }
+        .fmt-excel { background-color: #16a34a; }
+        .fmt-word { background-color: #2563eb; }
+        .fmt-csv { background-color: #0d9488; }
+        .fmt-pdf { background-color: #dc2626; }
+
+        /* Tabela */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background: #f8fafc; text-align: left; padding: 12px; font-size: 12px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid var(--border); }
+        td { padding: 12px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+        tr:hover { background: #f8fafc; }
+        
+        /* Inputs */
+        input[type="text"] { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-weight: bold; box-sizing: border-box; }
+        input.status-empty { border-color: #fca5a5; background: #fef2f2; color: #b91c1c; }
+        input.status-ok { border-color: #86efac; background: #ffffff; color: #15803d; }
+        
+        /* Loader */
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Categorias (Novo Visual) */
+        .cat-row { background: #334155; font-weight: bold; color: #ffffff; }
+        .cat-row td { padding: 12px 15px; border-bottom: 2px solid #1e293b; text-transform: uppercase; letter-spacing: 0.05em; }
+        .cat-icon { color: #60a5fa; margin-right: 10px; }
+
+        /* Alertas */
+        .alert { padding: 15px; border-radius: 6px; margin-bottom: 15px; font-size: 14px; }
+        .alert-error { background: #fee2e2; border-left: 4px solid #ef4444; color: #991b1b; }
+        .alert-warning { background: #fef3c7; border-left: 4px solid #f59e0b; color: #92400e; }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+            .card { box-shadow: none; border: none; padding: 0; }
+            .cat-row { background: #e2e8f0; color: #000; -webkit-print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="no-print">
+        <div class="inner">
+            <h1 style="margin:0; font-size: 20px;"><i class="fa-solid fa-file-contract"></i> Gestor Universal V6</h1>
+            <span style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 4px; font-size: 12px;">Categorização Inteligente</span>
+        </div>
+    </header>
+
+    <div class="container">
+        
+        <!-- Mensagem de Erro de Biblioteca -->
+        <div id="libError" class="alert alert-error hidden no-print">
+            <strong><i class="fa-solid fa-triangle-exclamation"></i> Atenção:</strong> Bibliotecas externas bloqueadas.
+            <br>Algumas funcionalidades podem estar limitadas. Tente salvar como CSV.
+        </div>
+
+        <!-- Área de Upload -->
+        <div id="uploadSection" class="card no-print">
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()" id="dropZone">
+                <i class="fa-solid fa-folder-tree"></i>
+                <h2 style="margin: 10px 0;">Arraste seu Arquivo</h2>
+                <p style="color: #64748b; margin-bottom: 20px;">
+                    O sistema reconhece automaticamente:
+                </p>
+                <div>
+                    <span class="format-badge fmt-excel"><i class="fa-solid fa-file-excel"></i> Excel (.xlsx, .xls, .ods)</span>
+                    <span class="format-badge fmt-csv"><i class="fa-solid fa-file-csv"></i> CSV / Texto</span>
+                    <span class="format-badge fmt-word"><i class="fa-solid fa-file-word"></i> Word (.docx)</span>
+                    <span class="format-badge fmt-pdf"><i class="fa-solid fa-file-pdf"></i> PDF (Aviso)</span>
+                </div>
+                
+                <input type="file" id="fileInput" 
+                    accept=".csv, .txt, .xlsx, .xls, .xlsb, .xlsm, .xml, .ods, .docx, .doc, .pdf" 
+                    style="display: none;">
+                <br><br>
+                <button class="btn">Selecionar Arquivo</button>
+            </div>
+        </div>
+
+        <!-- Tela de Carregamento -->
+        <div id="loadingSection" class="card hidden" style="text-align: center; padding: 50px;">
+            <div class="loader"></div>
+            <h3>Analisando Estrutura...</h3>
+            <p>Identificando materiais e separando por categorias.</p>
+        </div>
+
+        <!-- Área de Trabalho -->
+        <div id="workspace" class="hidden">
+            
+            <!-- Controles -->
+            <div class="card no-print">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    <div>
+                        <small style="text-transform: uppercase; color: #64748b; font-weight: bold;">Arquivo Identificado</small>
+                        <h2 id="unitNameDisplay" style="margin: 0; color: var(--text); font-size: 18px;">...</h2>
+                        <span id="fileTypeDisplay" class="format-badge" style="background:#94a3b8; margin-top:5px;">DESCONHECIDO</span>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="resetApp()" class="btn danger"><i class="fa-solid fa-trash"></i> Limpar</button>
+                        <button onclick="exportCSV()" class="btn"><i class="fa-solid fa-download"></i> Baixar CSV</button>
+                        <button onclick="window.print()" class="btn secondary"><i class="fa-solid fa-print"></i> Imprimir</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumo -->
+            <div class="card no-print">
+                <div style="display: flex; justify-content: space-around; text-align: center;">
+                    <div>
+                        <div style="font-size: 12px; color: #64748b; font-weight: bold;">TOTAL</div>
+                        <div id="statTotal" style="font-size: 24px; font-weight: bold;">0</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; color: #64748b; font-weight: bold;">ATENDIDOS</div>
+                        <div id="statFulfilled" style="font-size: 24px; font-weight: bold; color: var(--success);">0</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; color: #64748b; font-weight: bold;">PENDENTES / NT</div>
+                        <div id="statEmpty" style="font-size: 24px; font-weight: bold; color: var(--error);">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabela -->
+            <div class="card">
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 50px; text-align: center;">#</th>
+                                <th>Descrição do Material</th>
+                                <th style="width: 100px;">Unidade</th>
+                                <th style="width: 100px; text-align: center;">Solicitado</th>
+                                <th style="width: 200px;">Atendido</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemsTableBody">
+                            <!-- JS insere aqui -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Verificação Inicial de Bloqueio de Rede
+        window.addEventListener('load', function() {
+            if (window.xlsxFailed || typeof XLSX === 'undefined') {
+                document.getElementById('libError').classList.remove('hidden');
+            }
+        });
+
+        let parsedData = [];
+        let unitName = "NÃO IDENTIFICADO";
+        
+        // Palavras-chave que indicam fortemente uma Categoria/Título
+        const CATEGORY_KEYWORDS = [
+            "ALIMENTOS", "LIMPEZA", "EXPEDIENTE", "HIGIENE", "DESCARTÁVEL", 
+            "DESCARTAVEIS", "CONSUMO", "ESCOLAR", "PEDAGÓGICO", "DIDÁTICO", 
+            "COPA", "COZINHA", "INFORMATICA", "ESTOQUE", "PROTEÇÃO", "UTENSÍLIOS"
+        ];
+
+        // Elementos
+        const fileInput = document.getElementById('fileInput');
+        const uploadSection = document.getElementById('uploadSection');
+        const loadingSection = document.getElementById('loadingSection');
+        const workspace = document.getElementById('workspace');
+        const tableBody = document.getElementById('itemsTableBody');
+
+        // Drag & Drop
+        const dropZone = document.getElementById('dropZone');
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--primary)'; dropZone.style.background = '#eff6ff'; });
+        dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#94a3b8'; dropZone.style.background = '#f8fafc'; });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#94a3b8'; dropZone.style.background = '#f8fafc';
+            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', (e) => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+        function handleFile(file) {
+            uploadSection.classList.add('hidden');
+            loadingSection.classList.remove('hidden');
+            
+            const fileName = file.name;
+            const ext = fileName.split('.').pop().toLowerCase();
+            
+            console.log("Arquivo recebido:", fileName, "Extensão:", ext);
+
+            setTimeout(() => {
+                try {
+                    if (['csv', 'txt'].includes(ext)) {
+                        updateBadge('CSV', '#0d9488');
+                        processCSV(file);
+                    } 
+                    else if (['xlsx', 'xls', 'ods', 'xlsb', 'xlsm', 'xml'].includes(ext)) {
+                        updateBadge('EXCEL / ODS', '#16a34a');
+                        processExcel(file);
+                    } 
+                    else if (['docx'].includes(ext)) {
+                        updateBadge('WORD', '#2563eb');
+                        processWord(file);
+                    } 
+                    else if (['pdf'].includes(ext)) {
+                        alert("Arquivo PDF detectado.\n\nPara garantir a precisão, este sistema recomenda a conversão do PDF para Excel ou Word.\n\nTentaremos ler se for texto selecionável, mas o layout pode quebrar.");
+                        resetApp(false);
+                    }
+                    else {
+                        console.warn("Extensão desconhecida, tentando motor Excel...");
+                        updateBadge('GENÉRICO', '#64748b');
+                        processExcel(file);
+                    }
+                } catch (e) {
+                    alert("Erro ao iniciar processamento: " + e.message);
+                    resetApp(false);
+                }
+            }, 500);
+        }
+
+        function updateBadge(text, color) {
+            const badge = document.getElementById('fileTypeDisplay');
+            badge.innerText = text;
+            badge.style.backgroundColor = color;
+        }
+
+        // --- MOTORES DE PROCESSAMENTO ---
+
+        function processCSV(file) {
+            Papa.parse(file, {
+                complete: function(results) {
+                    analyzeData(results.data);
+                },
+                error: function(err) {
+                    alert("Erro CSV: " + err.message);
+                    resetApp(false);
+                }
+            });
+        }
+
+        function processExcel(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(firstSheet, {header: 1, defval: ""});
+                    analyzeData(rows);
+                } catch (err) {
+                    console.error(err);
+                    alert("Erro ao ler Planilha: " + err.message);
+                    resetApp(false);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processWord(file) {
+            if (typeof mammoth === 'undefined') {
+                alert("Erro: Biblioteca de Word não carregou. Verifique sua conexão.");
+                resetApp(false);
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const arrayBuffer = event.target.result;
+                mammoth.convertToHtml({arrayBuffer: arrayBuffer})
+                    .then(function(result) {
+                        const html = result.value;
+                        const tempDiv = document.createElement("div");
+                        tempDiv.innerHTML = html;
+                        
+                        let allRows = [];
+                        
+                        // Captura parágrafos (títulos soltos) e tabelas
+                        // Mammoth converte tabelas em <table> e texto solto em <p>
+                        // Vamos varrer o DOM na ordem
+                        tempDiv.childNodes.forEach(node => {
+                            if (node.nodeName === 'P' || node.nodeName === 'H1' || node.nodeName === 'H2' || node.nodeName === 'H3') {
+                                allRows.push([node.innerText]);
+                            } else if (node.nodeName === 'TABLE') {
+                                for (let tr of node.rows) {
+                                    let rowData = [];
+                                    for (let td of tr.cells) {
+                                        rowData.push(td.innerText);
+                                    }
+                                    allRows.push(rowData);
+                                }
+                            }
+                        });
+
+                        // Busca unidade no texto bruto se não achar na tabela
+                        const fullText = tempDiv.innerText.toUpperCase();
+                        if (fullText.includes("NOME DA UNIDADE")) {
+                            const match = fullText.match(/NOME DA UNIDADE[:\s]+([^\n]+)/);
+                            if (match) unitName = match[1].trim();
+                        }
+
+                        analyzeData(allRows);
+                    })
+                    .catch(function(err) {
+                        alert("Erro ao ler Word: " + err.message);
+                        resetApp(false);
+                    });
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- LÓGICA DE ANÁLISE (INTELIGÊNCIA DE CATEGORIA) ---
+        
+        function analyzeData(rows) {
+            try {
+                parsedData = [];
+                if (!unitName || unitName === "NÃO IDENTIFICADO") unitName = "Unidade Não Identificada";
+                
+                let currentCategory = "Geral";
+                let foundHeader = false;
+                let idxMat = -1, idxUnd = -1, idxSol = -1, idxAtd = -1;
+                let itemCounter = 1;
+
+                rows.forEach((row, index) => {
+                    if (!Array.isArray(row)) return;
+                    
+                    const rowStr = row.map(c => String(c || "").toUpperCase()).join(' ');
+                    const filledCells = row.filter(c => c && String(c).trim().length > 0);
+                    const firstCell = String(row[0] || "").toUpperCase().trim();
+
+                    // 1. Identificar Unidade
+                    if (rowStr.includes("NOME DA UNIDADE")) {
+                        const cell = row.find(c => String(c).toUpperCase().includes("NOME DA UNIDADE"));
+                        if (cell) {
+                            unitName = String(cell).replace(/NOME DA UNIDADE/i, '').replace(/[:]/g, '').replace(/[\",]/g, '').trim();
+                        }
+                    }
+
+                    // 2. Identificação de Cabeçalho da Tabela
+                    if (!foundHeader) {
+                        row.forEach((cell, i) => {
+                            const c = String(cell || "").toUpperCase().trim();
+                            if (c === 'MATERIAL') idxMat = i;
+                            if (c === 'UNIDADE') idxUnd = i;
+                            if (c.includes('SOLICITADA')) idxSol = i;
+                            if (c.includes('ATENDIDA')) idxAtd = i;
+                        });
+
+                        if (idxMat > -1 && (idxSol > -1 || idxAtd > -1)) {
+                            foundHeader = true;
+                            return; 
+                        }
+                    }
+
+                    // 3. Inteligência de Categoria
+                    // Ignora rodapés
+                    if (rowStr.includes("SEPARADO POR") || rowStr.includes("ENTREGUE POR") || rowStr.includes("MATERIAL PARA CONSUMO")) return;
+
+                    // Condição A: Regex clássico ("1 - ALIMENTOS", "MATERIAL DE LIMPEZA")
+                    // Condição B: Contém palavra-chave E NÃO tem número na coluna de quantidade (para não confundir item com título)
+                    
+                    let potentialCat = "";
+                    let isCategoryLine = false;
+
+                    // Tenta pegar o texto mais provável de ser categoria (geralmente na primeira ou segunda célula preenchida)
+                    if (filledCells.length > 0 && filledCells.length <= 2) {
+                        potentialCat = String(filledCells[0]).trim().toUpperCase();
+                    } else if (filledCells.length > 2) {
+                         // Se a linha tem muitas colunas, mas a primeira contém palavra chave e a coluna de quantidade está vazia/invalida
+                         if (idxSol > -1 && (!row[idxSol] || row[idxSol].length < 1)) {
+                             potentialCat = String(row[0] || "").trim().toUpperCase();
+                         }
+                    }
+
+                    const isHeader = potentialCat === "MATERIAL" || potentialCat === "QUANTIDADE" || potentialCat.includes("QUANTIDADE SOLICITADA");
+
+                    if (potentialCat.length > 3 && !isHeader) {
+                        // Teste 1: Regex de Formato (Ex: "1 - ALIMENTOS")
+                        if (/^(\d+\s*[-–]\s*)?[A-ZÃÁÂÀÉÊÍÓÔÚÇ\s\/\(\)\-0-9\.]+$/.test(potentialCat)) {
+                            // Teste 2: Validação Semântica (Contém palavra chave OU segue padrão "NUMERO - TEXTO")
+                            const hasKeyword = CATEGORY_KEYWORDS.some(key => potentialCat.includes(key));
+                            const hasNumberPrefix = /^\d+\s*[-–]/.test(potentialCat);
+                            const hasMaterial = potentialCat.includes("MATERIAL DE") || potentialCat.includes("MATERIAIS");
+                            
+                            if (hasKeyword || hasNumberPrefix || hasMaterial) {
+                                // Limpa prefixos numéricos (ex: "1 - ALIMENTOS" -> "ALIMENTOS")
+                                currentCategory = potentialCat.replace(/^\d+\s*[-–]\s*/, '').trim();
+                                isCategoryLine = true;
+                            }
+                        }
+                    }
+
+                    // Se identificou que é linha de categoria, não processa como item
+                    if (isCategoryLine) return;
+
+
+                    // 4. Extração de Dados (Itens)
+                    if (foundHeader && idxMat > -1 && row[idxMat]) {
+                        let material = String(row[idxMat]).trim();
+                        // Pula repetição de cabeçalho
+                        if (material.toUpperCase() === "MATERIAL") return;
+
+                        let requested = idxSol > -1 ? String(row[idxSol] || "").trim() : "";
+                        let fulfilled = idxAtd > -1 ? String(row[idxAtd] || "").trim() : "";
+                        let unit = idxUnd > -1 ? String(row[idxUnd] || "").trim() : "-";
+
+                        if (material.length > 1 && (requested || fulfilled)) {
+                            let status = 'ok';
+                            const check = fulfilled.toUpperCase();
+                            if (check.includes("NT") || check.includes("N.T") || check === "0" || check === "00." || check === "" || check.includes("REPETIDO")) {
+                                status = 'empty';
+                            }
+
+                            parsedData.push({
+                                id: itemCounter++,
+                                category: currentCategory,
+                                material,
+                                unit,
+                                requested,
+                                fulfilled,
+                                status
+                            });
+                        }
+                    }
+                });
+
+                if (parsedData.length === 0) {
+                    alert("Nenhum dado encontrado. O arquivo parece estar vazio ou num formato desconhecido.");
+                    resetApp(false);
+                    return;
+                }
+
+                renderTable();
+
+            } catch (error) {
+                console.error(error);
+                alert("Erro lógico: " + error.message);
+                resetApp(false);
+            }
+        }
+
+        function renderTable() {
+            loadingSection.classList.add('hidden');
+            workspace.classList.remove('hidden');
+            
+            document.getElementById('unitNameDisplay').innerText = unitName;
+            tableBody.innerHTML = '';
+            
+            let lastCategory = '';
+
+            parsedData.forEach(item => {
+                if (item.category !== lastCategory) {
+                    const tr = document.createElement('tr');
+                    tr.className = 'cat-row';
+                    tr.innerHTML = `<td colspan="5"><i class="fa-solid fa-layer-group cat-icon"></i>${item.category}</td>`;
+                    tableBody.appendChild(tr);
+                    lastCategory = item.category;
+                }
+
+                const tr = document.createElement('tr');
+                const statusClass = item.status === 'empty' ? 'status-empty' : 'status-ok';
+                
+                tr.innerHTML = `
+                    <td style="text-align: center; color: #94a3b8; font-size: 12px;">${item.id}</td>
+                    <td><strong>${item.material}</strong></td>
+                    <td style="font-size: 12px; color: #64748b;">${item.unit}</td>
+                    <td style="text-align: center;"><span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; borderRadius:4px; font-weight:bold; font-size:12px;">${item.requested}</span></td>
+                    <td>
+                        <input type="text" 
+                            class="${statusClass}"
+                            value="${item.fulfilled}"
+                            oninput="updateValue(${item.id}, this)"
+                        >
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+            updateStats();
+        }
+
+        function updateValue(id, input) {
+            const item = parsedData.find(i => i.id === id);
+            if (!item) return;
+            
+            item.fulfilled = input.value;
+            const val = input.value.toUpperCase();
+            
+            if (val.includes("NT") || val === "0" || val === "00." || val.trim() === "") {
+                item.status = 'empty';
+                input.className = "status-empty";
+            } else {
+                item.status = 'ok';
+                input.className = "status-ok";
+            }
+            updateStats();
+        }
+
+        function updateStats() {
+            const total = parsedData.length;
+            const empty = parsedData.filter(i => i.status === 'empty').length;
+            document.getElementById('statTotal').innerText = total;
+            document.getElementById('statFulfilled').innerText = total - empty;
+            document.getElementById('statEmpty').innerText = empty;
+        }
+
+        function exportCSV() {
+            let csv = "CATEGORIA;MATERIAL;UNIDADE;SOLICITADO;ATENDIDO\n";
+            parsedData.forEach(i => {
+                // Remove semicolons and newlines to prevent CSV breakage
+                const clean = (txt) => String(txt).replace(/;/g, ",").replace(/[\r\n]+/g, " ").trim();
+                csv += `${clean(i.category)};${clean(i.material)};${clean(i.unit)};${clean(i.requested)};${clean(i.fulfilled)}\n`;
+            });
+
+            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            const safeName = unitName.replace(/[^a-z0-9]/gi, '_').substring(0, 30);
+            
+            link.href = url;
+            link.download = `REQUISICAO_${safeName}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function resetApp(confirmMsg = true) {
+            if(!confirmMsg || confirm("Deseja voltar para o início?")) {
+                workspace.classList.add('hidden');
+                loadingSection.classList.add('hidden');
+                uploadSection.classList.remove('hidden');
+                fileInput.value = '';
+                document.getElementById('fileTypeDisplay').innerText = '';
+                document.getElementById('fileTypeDisplay').style.backgroundColor = 'transparent';
+            }
+        }
+    </script>
+</body>
+</html>
